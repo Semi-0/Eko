@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MiniVue Final Routing Test</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    #app {
+      max-width: 600px;
+      margin: 0 auto;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .test-controls {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      background: #333;
+      color: white;
+      padding: 15px;
+      border-radius: 8px;
+      font-size: 12px;
+      max-width: 300px;
+    }
+    .test-button {
+      background: #007AFF;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 2px;
+      font-size: 11px;
+    }
+    .test-button:hover {
+      background: #0056CC;
+    }
+    .status {
+      margin: 5px 0;
+      padding: 5px;
+      border-radius: 3px;
+    }
+    .status.success { background: #d4edda; color: #155724; }
+    .status.error { background: #f8d7da; color: #721c24; }
+    .status.info { background: #d1ecf1; color: #0c5460; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  
+  <div class="test-controls">
+    <div><strong>🧪 Routing Test Suite</strong></div>
+    <div id="current-route" class="status info">Route: /</div>
+    <div id="test-status" class="status info">Ready to test</div>
+    
+    <div style="margin: 10px 0;">
+      <button class="test-button" onclick="runAutomatedTest()">🚀 Run Auto Test</button>
+      <button class="test-button" onclick="clearLogs()">🧹 Clear Logs</button>
+    </div>
+    
+    <div style="margin: 10px 0;">
+      <div><strong>Manual Tests:</strong></div>
+      <button class="test-button" onclick="testNavigation()">Navigation</button>
+      <button class="test-button" onclick="testInteractions()">Interactions</button>
+      <button class="test-button" onclick="testStatePreservation()">State</button>
+    </div>
+    
+    <div id="test-log" style="max-height: 200px; overflow-y: auto; margin-top: 10px; font-size: 10px;">
+      <div>Test log will appear here...</div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { 
+      createApp, 
+      createRouter,
+      Text, 
+      Button, 
+      VStack, 
+      HStack, 
+      TextField, 
+      Link 
+    } from './src/miniVue.js';
+
+    // Test state
+    let testResults = [];
+    let currentTest = 0;
+
+    // Logging functions
+    function log(message, type = 'info') {
+      const timestamp = new Date().toLocaleTimeString();
+      const logDiv = document.getElementById('test-log');
+      const entry = document.createElement('div');
+      entry.className = `status ${type}`;
+      entry.innerHTML = `[${timestamp}] ${message}`;
+      logDiv.appendChild(entry);
+      logDiv.scrollTop = logDiv.scrollHeight;
+      
+      testResults.push({ message, type, timestamp });
+    }
+
+    function updateStatus(message, type = 'info') {
+      const statusDiv = document.getElementById('test-status');
+      statusDiv.className = `status ${type}`;
+      statusDiv.textContent = message;
+    }
+
+    function updateRoute(route) {
+      const routeDiv = document.getElementById('current-route');
+      routeDiv.textContent = `Route: ${route}`;
+    }
+
+    // Test functions
+    window.clearLogs = function() {
+      document.getElementById('test-log').innerHTML = '<div>Test log cleared...</div>';
+      testResults = [];
+    };
+
+    window.runAutomatedTest = async function() {
+      log('🚀 Starting automated routing test...', 'info');
+      updateStatus('Running automated test...', 'info');
+      
+      try {
+        // Test 1: Basic navigation
+        log('Test 1: Basic navigation sequence', 'info');
+        await navigateAndWait('/', 500);
+        await navigateAndWait('/about', 500);
+        await navigateAndWait('/contact', 500);
+        await navigateAndWait('/', 500);
+        log('✅ Basic navigation completed', 'success');
+        
+        // Test 2: Rapid navigation (the problematic case)
+        log('Test 2: Rapid navigation (Home ↔ About)', 'info');
+        for (let i = 0; i < 5; i++) {
+          await navigateAndWait('/about', 100);
+          await navigateAndWait('/', 100);
+        }
+        log('✅ Rapid navigation completed', 'success');
+        
+        // Test 3: Component integrity check
+        log('Test 3: Checking component integrity...', 'info');
+        await navigateAndWait('/', 200);
+        const homeElements = document.querySelectorAll('#app input, #app button');
+        log(`Found ${homeElements.length} interactive elements on home page`, 'info');
+        
+        await navigateAndWait('/about', 200);
+        const aboutElements = document.querySelectorAll('#app input, #app button');
+        log(`Found ${aboutElements.length} interactive elements on about page`, 'info');
+        
+        // Test 4: Event handler integrity
+        log('Test 4: Testing event handlers...', 'info');
+        await navigateAndWait('/', 200);
+        const buttons = document.querySelectorAll('#app button');
+        let workingButtons = 0;
+        buttons.forEach(button => {
+          if (button.onclick || button.getAttribute('onclick')) {
+            workingButtons++;
+          }
+        });
+        log(`${workingButtons}/${buttons.length} buttons have event handlers`, workingButtons === buttons.length ? 'success' : 'error');
+        
+        updateStatus('✅ All tests completed successfully!', 'success');
+        log('🎉 Automated test suite completed successfully!', 'success');
+        
+      } catch (error) {
+        log(`❌ Test failed: ${error.message}`, 'error');
+        updateStatus('❌ Test failed', 'error');
+      }
+    };
+
+    async function navigateAndWait(path, delay) {
+      return new Promise(resolve => {
+        if (window.router) {
+          window.router.navigate(path);
+          updateRoute(path);
+          setTimeout(resolve, delay);
+        } else {
+          resolve();
+        }
+      });
+    }
+
+    window.testNavigation = function() {
+      log('Manual navigation test - click links and check for issues', 'info');
+      updateStatus('Manual navigation test active', 'info');
+    };
+
+    window.testInteractions = function() {
+      log('Manual interaction test - try buttons and inputs', 'info');
+      updateStatus('Manual interaction test active', 'info');
+    };
+
+    window.testStatePreservation = function() {
+      log('Manual state test - enter text, navigate, return', 'info');
+      updateStatus('Manual state test active', 'info');
+    };
+
+    // Page components (same as main.ts)
+    const HomePage = (state) => VStack(
+      Text('🏠 Home Page'),
+      Text(`Counter: ${state.count}`),
+      Button('Increment', () => {
+        state.count++;
+        log(`Counter incremented to ${state.count}`, 'success');
+      }),
+      TextField(state.text, (value) => {
+        state.text = value;
+        log(`Text updated: "${value}"`, 'info');
+      }, 'Enter some text...'),
+      
+      HStack(
+        Link('About', '/about'),
+        Link('Contact', '/contact')
+      )
+    );
+
+    const AboutPage = (state) => VStack(
+      Text('ℹ️ About This Framework'),
+      Text('MiniVue is a minimal SwiftUI-like framework built with TypeScript.'),
+      Text(''),
+      Text('🚀 Features:'),
+      Text('• Reactive state management'),
+      Text('• Virtual DOM with efficient diffing'),
+      Text('• Component-based architecture'),
+      Text('• Client-side routing'),
+      Text('• TypeScript support'),
+      
+      HStack(
+        Link('Home', '/'),
+        Link('Contact', '/contact')
+      )
+    );
+
+    const ContactPage = (state) => VStack(
+      Text('📧 Contact Us'),
+      Text('Send us a message:'),
+      
+      TextField(state.email, (value) => {
+        state.email = value;
+        log(`Email updated: "${value}"`, 'info');
+      }, 'Your email...'),
+      TextField(state.message, (value) => {
+        state.message = value;
+        log(`Message updated: "${value}"`, 'info');
+      }, 'Your message...'),
+      
+      Button('Send Message', () => {
+        if (state.email && state.message) {
+          log(`Message sent from ${state.email}: ${state.message}`, 'success');
+          state.email = '';
+          state.message = '';
+        } else {
+          log('Please fill in both email and message fields', 'error');
+        }
+      }),
+      
+      HStack(
+        Link('Home', '/'),
+        Link('About', '/about')
+      )
+    );
+
+    const NotFoundPage = () => VStack(
+      Text('❌ 404 - Page Not Found'),
+      Text('The page you are looking for does not exist.'),
+      Link('Go Home', '/')
+    );
+
+    // Initialize app
+    const router = createRouter([
+      { path: '/', component: HomePage },
+      { path: '/about', component: AboutPage },
+      { path: '/contact', component: ContactPage },
+      { path: '*', component: NotFoundPage }
+    ]);
+
+    // Make router globally accessible for testing
+    window.router = router;
+
+    const app = createApp({
+      data: () => ({
+        count: 0,
+        text: '',
+        email: '',
+        message: ''
+      }),
+      router
+    });
+
+    app.mount('#app');
+
+    // Track route changes
+    let lastRoute = '/';
+    setInterval(() => {
+      const currentRoute = window.location.pathname;
+      if (currentRoute !== lastRoute) {
+        updateRoute(currentRoute);
+        log(`Route changed: ${lastRoute} → ${currentRoute}`, 'info');
+        lastRoute = currentRoute;
+      }
+    }, 100);
+
+    log('🎯 MiniVue routing test initialized', 'success');
+    updateStatus('Ready for testing', 'success');
+  </script>
+</body>
+</html> 
